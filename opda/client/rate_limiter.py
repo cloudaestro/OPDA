@@ -7,8 +7,9 @@ configurable retry logic to handle API rate limits gracefully.
 
 import asyncio
 import time
+from collections.abc import Callable
 from datetime import datetime, timedelta
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 import structlog
 from tenacity import (
@@ -26,7 +27,7 @@ logger = structlog.get_logger(__name__)
 
 class RateLimitExceeded(Exception):
     """Raised when API rate limit is exceeded."""
-    
+
     def __init__(
         self,
         message: str,
@@ -40,7 +41,7 @@ class RateLimitExceeded(Exception):
 
 class CircuitBreakerOpen(Exception):
     """Raised when circuit breaker is open."""
-    
+
     def __init__(self, message: str, reset_time: datetime) -> None:
         super().__init__(message)
         self.reset_time = reset_time
@@ -49,14 +50,14 @@ class CircuitBreakerOpen(Exception):
 class OktaRateLimiter:
     """
     Production-grade rate limiter for Okta API with circuit breaker.
-    
+
     Features:
     - Exponential backoff with jitter
     - Circuit breaker pattern for fast failure
     - Request rate tracking and throttling
     - Configurable retry policies
     """
-    
+
     def __init__(
         self,
         max_retries: int = 5,
@@ -70,16 +71,16 @@ class OktaRateLimiter:
         self.max_requests_per_minute = max_requests_per_minute
         self.circuit_breaker_threshold = circuit_breaker_threshold
         self.circuit_breaker_timeout = circuit_breaker_timeout
-        
+
         # Request tracking
         self._request_times: list[float] = []
         self._lock = asyncio.Lock()
-        
+
         # Circuit breaker state
         self._failure_count = 0
         self._circuit_open_time: datetime | None = None
         self._is_circuit_open = False
-        
+
         # Statistics
         self._total_requests = 0
         self._total_retries = 0
@@ -93,22 +94,22 @@ class OktaRateLimiter:
     ) -> Any:
         """
         Execute a function with rate limiting and retry logic.
-        
+
         Args:
             func: Function to execute
             *args: Positional arguments for the function
             **kwargs: Keyword arguments for the function
-            
+
         Returns:
             Function result
-            
+
         Raises:
             RateLimitExceeded: If rate limit cannot be handled
             CircuitBreakerOpen: If circuit breaker is open
         """
         await self._check_circuit_breaker()
         await self._enforce_rate_limit()
-        
+
         async for attempt in AsyncRetrying(
             stop=stop_after_attempt(self.max_retries + 1),
             wait=wait_exponential(
@@ -123,35 +124,35 @@ class OktaRateLimiter:
                 try:
                     self._total_requests += 1
                     result = await self._execute_function(func, *args, **kwargs)
-                    
+
                     # Reset failure count on success
                     self._failure_count = 0
-                    
+
                     return result
-                    
+
                 except RateLimitExceeded as e:
                     self._total_rate_limit_hits += 1
                     self._total_retries += 1
-                    
+
                     logger.warning(
                         "Rate limit exceeded, retrying",
                         retry_after=e.retry_after,
                         attempt=attempt.retry_state.attempt_number,
                     )
-                    
+
                     # Wait for the retry-after period if provided
                     if e.retry_after:
                         await asyncio.sleep(e.retry_after)
-                    
+
                     raise
-                    
+
                 except Exception as e:
                     self._failure_count += 1
-                    
+
                     # Open circuit breaker if too many failures
                     if self._failure_count >= self.circuit_breaker_threshold:
                         self._open_circuit_breaker()
-                    
+
                     logger.error(
                         "Request failed",
                         error=str(e),
@@ -173,10 +174,10 @@ class OktaRateLimiter:
         """Check if circuit breaker is open and handle state transitions."""
         if not self._is_circuit_open:
             return
-            
+
         if self._circuit_open_time is None:
             return
-            
+
         # Check if circuit breaker timeout has passed
         if datetime.utcnow() - self._circuit_open_time > timedelta(
             seconds=self.circuit_breaker_timeout
@@ -196,18 +197,18 @@ class OktaRateLimiter:
         """Enforce request rate limiting."""
         async with self._lock:
             now = time.time()
-            
+
             # Remove requests older than 1 minute
             self._request_times = [
                 req_time for req_time in self._request_times
                 if now - req_time < 60
             ]
-            
+
             # Check if we've hit the rate limit
             if len(self._request_times) >= self.max_requests_per_minute:
                 oldest_request = min(self._request_times)
                 wait_time = 60 - (now - oldest_request)
-                
+
                 if wait_time > 0:
                     logger.warning(
                         "Rate limit approaching, throttling requests",
@@ -215,7 +216,7 @@ class OktaRateLimiter:
                         current_requests=len(self._request_times),
                     )
                     await asyncio.sleep(wait_time)
-            
+
             # Record this request
             self._request_times.append(now)
 
@@ -223,7 +224,7 @@ class OktaRateLimiter:
         """Open the circuit breaker."""
         self._is_circuit_open = True
         self._circuit_open_time = datetime.utcnow()
-        
+
         logger.error(
             "Circuit breaker opened due to excessive failures",
             failure_count=self._failure_count,
