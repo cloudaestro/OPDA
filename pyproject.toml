@@ -1,0 +1,214 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "opda"
+version = "0.1.0"
+description = "Okta Privilege Drift Auditor - Enterprise IAM security audit tool"
+authors = [
+    {name = "OPDA Team", email = "security@company.com"},
+]
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.12"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: System :: Systems Administration :: Authentication/Directory",
+    "Typing :: Typed",
+]
+keywords = ["okta", "security", "audit", "iam", "privilege", "drift"]
+
+dependencies = [
+    # Core runtime
+    "pydantic>=2.8.0,<3.0",
+    "pydantic-settings>=2.4.0",
+    "typer[all]>=0.12.0",
+    "structlog>=24.1.0",
+    
+    # Okta integration
+    "okta>=2.9.0,<3.0",
+    "httpx>=0.27.0",
+    "tenacity>=8.5.0",
+    
+    # Policy engine
+    "subprocess-run>=0.1.0",
+    
+    # Data processing
+    "pandas>=2.2.0",
+    "sqlalchemy>=2.0.30",
+    
+    # Reporting
+    "jinja2>=3.1.4",
+    "weasyprint>=61.2",
+    "plotly>=5.22.0",
+    "cryptography>=43.0.0",
+    
+    # Utilities
+    "python-dateutil>=2.9.0",
+    "click>=8.1.7",
+]
+
+[project.optional-dependencies]
+dev = [
+    # Quality tools
+    "ruff>=0.5.0",
+    "mypy>=1.11.0",
+    "pre-commit>=3.7.0",
+    
+    # Testing
+    "pytest>=8.2.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=5.0.0",
+    "pytest-mock>=3.14.0",
+    "httpx[test]>=0.27.0",
+    "faker>=26.0.0",
+    
+    # Type stubs
+    "types-python-dateutil",
+    "types-requests",
+    "pandas-stubs",
+]
+
+[project.scripts]
+opda = "opda.cli.main:app"
+
+[project.urls]
+Homepage = "https://github.com/company/opda"
+Repository = "https://github.com/company/opda.git"
+Issues = "https://github.com/company/opda/issues"
+
+# Hatch configuration
+[tool.hatch.build.targets.wheel]
+packages = ["opda"]
+
+[tool.hatch.envs.default]
+dependencies = [
+    "coverage[toml]",
+    "pytest",
+    "pytest-cov",
+]
+
+[tool.hatch.envs.default.scripts]
+test = "pytest {args:tests}"
+test-cov = "coverage run -m pytest {args:tests}"
+cov-report = [
+    "- coverage combine",
+    "coverage report",
+]
+cov-html = [
+    "- coverage combine",
+    "coverage html",
+]
+
+# Ruff configuration
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+indent-width = 4
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings  
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "UP",   # pyupgrade
+    "N",    # pep8-naming
+    "S",    # flake8-bandit (security)
+    "T20",  # flake8-print
+    "PT",   # flake8-pytest-style
+    "RUF",  # Ruff-specific rules
+]
+ignore = [
+    "S101",   # Use of assert
+    "S603",   # subprocess call
+    "S608",   # Possible SQL injection
+    "T201",   # print statements (for CLI)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*" = ["S101", "PT011", "PT012"]
+"opda/cli/**/*" = ["T201"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+# MyPy configuration
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = [
+    "okta.*",
+    "weasyprint.*",
+    "plotly.*",
+]
+ignore_missing_imports = true
+
+# Pytest configuration
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--cov=opda",
+    "--cov-report=term-missing:skip-covered",
+    "--cov-report=html",
+    "--cov-report=xml",
+    "--cov-fail-under=95",
+]
+testpaths = ["tests"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
+
+# Coverage configuration
+[tool.coverage.run]
+branch = true
+source = ["opda"]
+omit = [
+    "tests/*",
+    "opda/__main__.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
