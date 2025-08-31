@@ -213,7 +213,9 @@ class TestOktaApplication:
 
     def test_empty_name_validation(self) -> None:
         """Test empty name validation."""
-        with pytest.raises(ValidationError, match="Name and label fields cannot be empty"):
+        with pytest.raises(
+            ValidationError, match="Name and label fields cannot be empty"
+        ):
             OktaApplication(
                 id="0oa123456789abcdef",
                 name="",  # Empty name

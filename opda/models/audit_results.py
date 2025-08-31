@@ -281,7 +281,7 @@ class AuditSession(BaseModel):
     def requires_immediate_attention(self) -> bool:
         """Check if audit results require immediate attention."""
         return (
-            self.get_critical_findings_count() > 0 or 
+            self.get_critical_findings_count() > 0 or
             self.get_high_risk_findings_count() > 5
         )
 
