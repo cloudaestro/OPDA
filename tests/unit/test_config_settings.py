@@ -24,11 +24,11 @@ class TestOktaSettings:
         """Test valid Okta domain formats."""
         valid_domains = [
             "company.okta.com",
-            "dev.oktapreview.com", 
+            "dev.oktapreview.com",
             "test.okta-emea.com",
             "https://company.okta.com",
         ]
-        
+
         for domain in valid_domains:
             settings = OktaSettings(domain=domain, token="valid_token_12345")
             # Domain should be normalized (no protocol)
@@ -53,7 +53,7 @@ class TestOktaSettings:
             rate_limit_max_retries=3,
             rate_limit_backoff_factor=1.5,
         )
-        
+
         assert settings.rate_limit_max_retries == 3
         assert settings.rate_limit_backoff_factor == 1.5
 
@@ -66,11 +66,11 @@ class TestOktaSettings:
                 token="valid_token_12345",
                 rate_limit_max_retries=11,  # Above maximum
             )
-            
+
         # Test backoff factor bounds
         with pytest.raises(ValidationError):
             OktaSettings(
-                domain="company.okta.com", 
+                domain="company.okta.com",
                 token="valid_token_12345",
                 rate_limit_backoff_factor=0.5,  # Below minimum
             )
@@ -82,7 +82,7 @@ class TestAppSettings:
     def test_default_app_settings(self) -> None:
         """Test default application settings."""
         settings = AppSettings()
-        
+
         assert settings.log_level == "INFO"
         assert settings.log_format == "json"
         assert settings.max_concurrent_requests == 10
@@ -92,9 +92,9 @@ class TestAppSettings:
         """Test that directories are created when specified."""
         with tempfile.TemporaryDirectory() as temp_dir:
             test_path = Path(temp_dir) / "test_output"
-            
-            settings = AppSettings(output_dir=test_path)
-            
+
+            AppSettings(output_dir=test_path)
+
             # Directory should be created
             assert test_path.exists()
             assert test_path.is_dir()
@@ -106,7 +106,7 @@ class TestAppSettings:
             invalid_path = Path("C:/invalid/path/that/cannot/be/created")
         else:  # Unix-like
             invalid_path = Path("/root/invalid/path")
-        
+
         # Should raise validation error if cannot create directory
         try:
             AppSettings(output_dir=invalid_path)
@@ -117,7 +117,7 @@ class TestAppSettings:
         """Test concurrent requests validation."""
         with pytest.raises(ValidationError):
             AppSettings(max_concurrent_requests=0)  # Below minimum
-            
+
         with pytest.raises(ValidationError):
             AppSettings(max_concurrent_requests=51)  # Above maximum
 
@@ -133,7 +133,7 @@ class TestSettings:
     def test_settings_from_environment(self) -> None:
         """Test loading settings from environment variables."""
         settings = Settings()
-        
+
         assert settings.okta.domain == "test.okta.com"
         assert settings.okta.token == "test_token_12345"
         assert settings.app.log_level == "DEBUG"
@@ -145,7 +145,7 @@ class TestSettings:
             okta=OktaSettings(domain="test.okta.com", token="valid_token_12345")
         )
         assert settings.validate_okta_connection() is True
-        
+
         # Invalid connection (empty credentials)
         settings = Settings(
             okta=OktaSettings(domain="", token="")
@@ -158,7 +158,7 @@ class TestSettings:
             app=AppSettings(log_level="DEBUG")
         )
         assert settings.is_development() is True
-        
+
         settings = Settings(
             app=AppSettings(log_level="INFO")
         )
@@ -171,7 +171,7 @@ class TestPolicySettings:
     def test_default_policy_settings(self) -> None:
         """Test default policy settings."""
         settings = PolicySettings()
-        
+
         assert settings.opa_binary_path == "opa"
         assert settings.policy_timeout == 30
         assert settings.enable_policy_tests is True
@@ -181,7 +181,7 @@ class TestPolicySettings:
         """Test policy timeout validation."""
         with pytest.raises(ValidationError):
             PolicySettings(policy_timeout=0)  # Below minimum
-            
+
         with pytest.raises(ValidationError):
             PolicySettings(policy_timeout=301)  # Above maximum
 
@@ -192,7 +192,7 @@ class TestReportSettings:
     def test_default_report_settings(self) -> None:
         """Test default report settings."""
         settings = ReportSettings()
-        
+
         assert settings.enable_pdf_signing is False
         assert settings.pdf_signing_cert_path is None
         assert settings.report_title == "OPDA Privilege Audit Report"
@@ -202,16 +202,16 @@ class TestReportSettings:
         """Test PDF signing configuration."""
         with tempfile.NamedTemporaryFile(suffix=".p12", delete=False) as temp_cert:
             cert_path = Path(temp_cert.name)
-            
+
             settings = ReportSettings(
                 enable_pdf_signing=True,
                 pdf_signing_cert_path=cert_path,
                 pdf_signing_cert_password="test_password",
             )
-            
+
             assert settings.enable_pdf_signing is True
             assert settings.pdf_signing_cert_path == cert_path
             assert settings.pdf_signing_cert_password == "test_password"
-            
+
         # Clean up
         cert_path.unlink(missing_ok=True)
